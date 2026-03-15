@@ -30,9 +30,10 @@ jobs:
 
       - name: Convert Notebooks
         run: |
-          # Convert notebooks and prevent Jekyll from ignoring hidden assets
-          jupyter nbconvert --to html *.ipynb
-          touch .nojekyll 
+          pip install nbconvert notebook
+          # This converts notebooks and ensures they are in the root for easy linking
+          jupyter nbconvert --to html --template full *.ipynb
+          touch .nojekyll
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
