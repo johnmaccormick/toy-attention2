@@ -1,0 +1,5 @@
+title: Thinking AI Research
+description: Investigating LLM training efficiency and chain of thought reasoning.
+theme: jekyll-theme-minimal # Simple, clean, and reliable
+google_analytics: G-C5RWE6GL0N # Optional: add your ID here if you want to track views
+show_downloads: true
