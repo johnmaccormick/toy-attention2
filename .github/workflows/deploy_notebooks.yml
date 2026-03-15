@@ -1,0 +1,32 @@
+name: Convert Notebooks to HTML
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install nbconvert notebook
+
+      - name: Convert Notebooks
+        run: |
+          # This converts all notebooks in the root to HTML
+          jupyter nbconvert --to html *.ipynb
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: . # The folder where the HTML files were generated
+          branch: gh-pages # The branch Pages will pull from
