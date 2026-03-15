@@ -33,7 +33,7 @@ jobs:
           pip install nbconvert notebook
           # This converts notebooks and ensures they are in the root for easy linking
           jupyter nbconvert --to html --template full *.ipynb
-          touch .nojekyll
+          # touch .nojekyll
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
