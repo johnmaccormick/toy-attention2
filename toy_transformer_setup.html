@@ -3,7 +3,7 @@ None<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>toyAttention</title><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script><script type="module">
+<title>toy_transformer_setup</title><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script><script type="module">
   import mermaid from 'https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.10.0/mermaid.esm.min.mjs';
   
   mermaid.initialize({ startOnLoad: true });
@@ -13088,101 +13088,150 @@ div#notebook {
 <main>
 <div class="border-box-sizing" id="notebook" tabindex="-1">
 <div class="container" id="notebook-container">
-<div class="cell border-box-sizing code_cell rendered" id="cell-id=0">
-<div class="input">
-<div class="prompt input_prompt">In [ ]:</div>
-<div class="inner_cell">
-<div class="input_area">
-<div class="highlight hl-python"><pre><span></span> 
-</pre></div>
-</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=0"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Toy-Transformer-Setup-(V=5,-L=4)">Toy Transformer Setup (V=5, L=4)<a class="anchor-link" href="#Toy-Transformer-Setup-(V=5,-L=4)">¶</a></h1><p>This notebook records the simplified transformer attention setup using the <strong>same conventions as most transformer papers</strong>:</p>
+<ul>
+<li>Token representations are <strong>row vectors</strong>.</li>
+<li>Matrices multiply on the <strong>right</strong>.</li>
+<li>Attention output is computed as <strong>H = P V</strong>.</li>
+</ul>
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing text_cell rendered" id="cell-id=1"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Single-Head,-Single-Layer-Transformer-(Simplified)">Single-Head, Single-Layer Transformer (Simplified)<a class="anchor-link" href="#Single-Head,-Single-Layer-Transformer-(Simplified)">¶</a></h2><h3 id="Setup">Setup<a class="anchor-link" href="#Setup">¶</a></h3><p>Let $V$ denote the vocabulary size and $L$ the context length. We choose an embedding dimension</p>
-<p>$$d = V + L$$</p>
-<p>and define orthonormal basis vectors $e_1, \ldots, e_d \in \mathbb{R}^{d\times 1}$.</p>
-<p><strong>Token embeddings</strong> occupy the first $V$ coordinates, and <strong>positional encodings</strong> the remaining $L$:</p>
-<p>$$\text{token } t \mapsto e_t, \qquad t \in \{1, \ldots, V\}$$</p>
-<p>$$\text{position } p \mapsto e_{V+p}, \qquad p \in \{1, \ldots, L\}$$</p>
-<p>The combined representation of token $t$ at position $p$ is</p>
-<p>$$x(t, p) = e_t + e_{V+p} \in \mathbb{R}^{d\times 1}.$$</p>
-<hr/>
-<h3 id="Attention">Attention<a class="anchor-link" href="#Attention">¶</a></h3><p>We fix $W_Q = I\in \mathbb{R}^{d\times d}$, so the query for position $i$ is simply</p>
-<p>$$q_i = x(t_i, p_i)\in \mathbb{R}^{d\times 1}.$$</p>
-<p>The key and value projections are learned:</p>
-<p>$$k_j = W_K\, x(t_j, p_j), \qquad v_j = W_V\, x(t_j, p_j), \quad \text{(both in $\mathbb{R}^{d\times 1}$)}.$$</p>
-<p>The raw attention score between positions $i$ and $j$ is</p>
-<p>$$S_{ij} = q_i^\top k_j = x(t_i, p_i)^\top W_K\, x(t_j, p_j),  \quad i,j \in \{1, \ldots, L\}.$$</p>
-<p>Causal masking sets $S_{ij} = -\infty$ for $j &gt; i$, enforcing that position $i$ can only attend to earlier tokens (and itself). The attention weights are then</p>
-<p>$$P_{ij} = \frac{\exp(S_{ij})}{\displaystyle\sum_{j' \leq i} \exp(S_{ij'})} \quad i,j \in \{1, \ldots, L\}.$$</p>
-<p>The contextualised representation at position $i$ is</p>
-<p>$$h_i = \sum_{j \leq i} P_{ij}\, v_j, \quad i \in \{1, \ldots, L\}.$$</p>
-<hr/>
-<h3 id="Score-decomposition">Score decomposition<a class="anchor-link" href="#Score-decomposition">¶</a></h3><p>Because each $x(t, p)$ has exactly two nonzero coordinates, the score $S_{ij}$ decomposes additively into four interpretable tables:</p>
-<p>$$S_{ij} = A_{t_i,\, t_j} + B_{t_i,\, p_j} + C_{p_i,\, t_j} + D_{p_i,\, p_j}, \quad i,j \in \{1, \ldots, L\}$$</p>
+<h2 id="Dimensions">Dimensions<a class="anchor-link" href="#Dimensions">¶</a></h2><ul>
+<li>Vocabulary size: <strong>V = 5</strong></li>
+<li>Context length: <strong>L = 4</strong></li>
+<li>Embedding dimension: <strong>d = V + L = 9</strong></li>
+</ul>
+<p>Token representations:</p>
+<p>$$
+x \in \mathbb{R}^{1 \times d}
+$$</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=2"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Basis-vectors">Basis vectors<a class="anchor-link" href="#Basis-vectors">¶</a></h2><p>Standard basis vectors are <strong>row vectors</strong>:</p>
+<p>$$
+e_i \in \mathbb{R}^{1 \times d}
+$$</p>
+<p>Example:</p>
+<p>$$
+e_1 = [1,0,0,0,0,0,0,0,0]
+$$</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=3"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Token-and-position-representation">Token and position representation<a class="anchor-link" href="#Token-and-position-representation">¶</a></h2><p>Token <code>t</code> at position <code>p</code> is represented by</p>
+<p>$$
+x(t,p) = e_t + e_{V+p}
+$$</p>
+<p>Thus each vector has <strong>two non‑zero coordinates</strong>:</p>
+<ul>
+<li>one for the token</li>
+<li>one for the position</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=4"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Stacked-input-matrix">Stacked input matrix<a class="anchor-link" href="#Stacked-input-matrix">¶</a></h2><p>Stacking token vectors gives</p>
+<p>$$
+X \in \mathbb{R}^{L \times d}
+$$</p>
+<p>Each row corresponds to one position in the sequence.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=5"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Linear-projections">Linear projections<a class="anchor-link" href="#Linear-projections">¶</a></h2><p>$$
+Q = X W_Q
+$$</p>
+<p>$$
+K = X W_K
+$$</p>
+<p>$$
+V = X W_V
+$$</p>
+<p>with</p>
+<p>$$
+W_Q, W_K, W_V \in \mathbb{R}^{d \times d}
+$$</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=6"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Attention-scores">Attention scores<a class="anchor-link" href="#Attention-scores">¶</a></h2><p>$$
+S = Q K^T
+$$</p>
+<p>Shape:</p>
+<p>$$
+S \in \mathbb{R}^{L \times L}
+$$</p>
+<p>Entry $S_{ij}$ is the score between query position $i$ and key position $j$.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=7"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Attention-probabilities">Attention probabilities<a class="anchor-link" href="#Attention-probabilities">¶</a></h2><p>Apply row‑wise softmax:</p>
+<p>$$
+P = \text{softmax}(S)
+$$</p>
+<p>Each row sums to 1.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=8"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Attention-output">Attention output<a class="anchor-link" href="#Attention-output">¶</a></h2><p>$$
+H = P V
+$$</p>
+<p>Shapes:</p>
+<ul>
+<li>$P \in \mathbb{R}^{L \times L}$</li>
+<li>$V \in \mathbb{R}^{L \times d_v}$</li>
+<li>$H \in \mathbb{R}^{L \times d_v}$</li>
+</ul>
+<p>Row $i$:</p>
+<p>$$
+h_i = \sum_{j=1}^{L} P_{ij} v_j
+$$</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=9"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Final-output-(optional)">Final output (optional)<a class="anchor-link" href="#Final-output-(optional)">¶</a></h2><p>If predicting a token distribution:</p>
+<p>$$
+z = h_L W_O
+$$</p>
+<p>$$
+p = \text{softmax}(z)
+$$</p>
 <p>where</p>
-<p>$$A = E_t^\top W_K E_t \in \mathbb{R}^{V \times V}, \qquad B = E_t^\top W_K E_p \in \mathbb{R}^{V \times L},$$</p>
-<p>$$C = E_p^\top W_K E_t \in \mathbb{R}^{L \times V}, \qquad D = E_p^\top W_K E_p \in \mathbb{R}^{L \times L},$$</p>
-<p>and $E_t = [e_1 \mid \cdots \mid e_V]$, $E_p = [e_{V+1} \mid \cdots \mid e_{V+L}]$ are the token and position embedding matrices.</p>
-<hr/>
-<h3 id="Output">Output<a class="anchor-link" href="#Output">¶</a></h3><p>Since we require only the output at the final position $i = L$, we need only the last row of $P$:</p>
-<p>$$P_{Lj} = \frac{\exp(S_{Lj})}{\displaystyle\sum_{j'=1}^{L} \exp(S_{Lj'})}, \qquad j = 1, \ldots, L.$$</p>
-<p>This depends only on the single row</p>
-<p>$$S_{Lj} = A_{t_L,\, t_j} + B_{t_L,\, p_j} + C_{L,\, t_j} + D_{L,\, p_j} \qquad j = 1, \ldots, L.$$</p>
-<p>The output representation is</p>
-<p>$$h_L = \sum_{j=1}^{L} P_{Lj}\, v_j.$$</p>
-<p>A learned output projection $W_O \in \mathbb{R}^{V \times d}$ then maps this to logits over the vocabulary:</p>
-<p>$$\ell = W_O\, h_L \in \mathbb{R}^V,$$</p>
-<p>and the predicted next-token distribution is</p>
-<p>$$\hat{y}_k = \frac{\exp(\ell_k)}{\displaystyle\sum_{k'=1}^{V} \exp(\ell_{k'})}, \qquad k \in \{1, \ldots, V\}.$$</p>
-<hr/>
-<h3 id="Learnable-parameters">Learnable parameters<a class="anchor-link" href="#Learnable-parameters">¶</a></h3><p>With $V = 5$ and $L = 4$, the full parameter set is:</p>
-<table>
-<thead>
-<tr>
-<th>Matrix</th>
-<th>Shape</th>
-<th>Parameters</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>$A$</td>
-<td>$V \times V$</td>
-<td>$25$</td>
-</tr>
-<tr>
-<td>$B$</td>
-<td>$V \times L$</td>
-<td>$20$</td>
-</tr>
-<tr>
-<td>$C$</td>
-<td>$L \times V$</td>
-<td>$20$</td>
-</tr>
-<tr>
-<td>$D$</td>
-<td>$L \times L$</td>
-<td>$16$</td>
-</tr>
-<tr>
-<td>$W_V$</td>
-<td>$d \times d$</td>
-<td>$81$</td>
-</tr>
-<tr>
-<td>$W_O$</td>
-<td>$V \times d$</td>
-<td>$45$</td>
-</tr>
-</tbody>
-</table>
-<p>Since only the last row of the score matrix enters the computation, the effective score parameters reduce from $81$ to $5 + 4 + 5 + 4 = 18$ (minus one for the softmax row-shift symmetry, giving $17$).</p>
+<p>$$
+W_O \in \mathbb{R}^{d_v \times V}
+$$</p>
 </div>
 </div>
 </div>
