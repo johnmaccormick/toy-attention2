@@ -1,0 +1,42 @@
+name: Convert Notebooks to HTML
+on:
+  push:
+    branches:
+      - main
+
+# Setting permissions to allow the action to push to the gh-pages branch
+permissions:
+  contents: write
+
+env:
+  # Opt into the new Node.js 24 runtime now to clear warnings
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4 # Ensure this is the latest v4+
+
+      - name: Set up Python
+        uses: actions/setup-python@v5 # Upgraded to v5 for Node 24 support
+        with:
+          python-version: '3.11' # Updated to a modern stable version
+
+      - name: Install dependencies
+        run: |
+          pip install nbconvert notebook
+
+      - name: Convert Notebooks
+        run: |
+          pip install nbconvert notebook
+          # This converts notebooks and ensures they are in the root for easy linking
+          jupyter nbconvert --to html --template full *.ipynb
+          # touch .nojekyll
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: . 
+          branch: gh-pages
