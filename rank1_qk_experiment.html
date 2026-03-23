@@ -3,7 +3,7 @@ None<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>toy_transformer_setup</title><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script><script type="module">
+<title>rank1_qk_experiment</title><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script><script type="module">
   import mermaid from 'https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.10.0/mermaid.esm.min.mjs';
   
   mermaid.initialize({ startOnLoad: true });
@@ -13091,11 +13091,13 @@ div#notebook {
 <div class="cell border-box-sizing text_cell rendered" id="cell-id=0"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h1 id="Toy-Transformer-Setup-(V=5,-L=4)">Toy Transformer Setup (V=5, L=4)<a class="anchor-link" href="#Toy-Transformer-Setup-(V=5,-L=4)">¶</a></h1><p>This notebook records the simplified transformer attention setup using the <strong>same conventions as most transformer papers</strong>:</p>
+<h1 id="Rank-1-QK-Experiment:-$W_Q-=-e_2$,-$W_K-=-e_3$">Rank-1 QK Experiment: $W_Q = e_2$, $W_K = e_3$<a class="anchor-link" href="#Rank-1-QK-Experiment:-$W_Q-=-e_2$,-$W_K-=-e_3$">¶</a></h1><p><strong>Setup:</strong> Same toy transformer as the base notebook — vocabulary $V=5$, context length $L=4$, embedding dimension $d = V+L = 9$ — but now the query and key projections are <strong>rank-1</strong> (key dimension $d_k = 1$).</p>
+<p><strong>Conventions throughout:</strong></p>
 <ul>
-<li>Token representations are <strong>row vectors</strong>.</li>
-<li>Matrices multiply on the <strong>right</strong>.</li>
-<li>Attention output is computed as <strong>H = P V</strong>.</li>
+<li>Token representations are <strong>row vectors</strong> $x \in \mathbb{R}^{1 \times d}$.</li>
+<li>Matrices multiply on the <strong>right</strong>: $Q = XW_Q$, $K = XW_K$.</li>
+<li>Token $t$ at context position $p$ is embedded as $x(t,p) = e_t + e_{V+p}$, where $e_i$ is the $i$-th standard basis row vector.</li>
+<li>Embedding indices $0\ldots4$ are token dimensions ($t_0\ldots t_4$); indices $5\ldots8$ are position dimensions ($p_0\ldots p_3$).</li>
 </ul>
 </div>
 </div>
@@ -13103,139 +13105,66 @@ div#notebook {
 <div class="cell border-box-sizing text_cell rendered" id="cell-id=1"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Dimensions">Dimensions<a class="anchor-link" href="#Dimensions">¶</a></h2><ul>
-<li>Vocabulary size: <strong>V = 5</strong></li>
-<li>Context length: <strong>L = 4</strong></li>
-<li>Embedding dimension: <strong>d = V + L = 9</strong></li>
-</ul>
-<p>Token representations:</p>
+<h2 id="Rank-1-Projections">Rank-1 Projections<a class="anchor-link" href="#Rank-1-Projections">¶</a></h2><p>With $d_k = 1$, the projection matrices are <strong>column vectors</strong>:</p>
 <p>$$
-x \in \mathbb{R}^{1 \times d}
+W_Q \in \mathbb{R}^{d \times 1}, \qquad W_K \in \mathbb{R}^{d \times 1}
 $$</p>
+<p>This gives:</p>
+<p>$$
+Q = X W_Q \in \mathbb{R}^{L \times 1}, \qquad K = X W_K \in \mathbb{R}^{L \times 1}
+$$</p>
+<p>$$
+S = Q K^T \in \mathbb{R}^{L \times L}
+$$</p>
+<p>The score $S_{ij} = Q_i \cdot K_j$ is just the product of two scalars.</p>
+<p><strong>Relationship matrix</strong> (see base notebook):</p>
+<p>$$
+R = W_Q W_K^T \in \mathbb{R}^{d \times d}, \qquad S = X R X^T
+$$</p>
+<p>Because $W_Q$ and $W_K$ are rank-1 column vectors, $R$ is a <strong>rank-1 matrix</strong>: a single outer product $w_q w_k^T$, with at most one nonzero entry when $w_q$ and $w_k$ are basis vectors.</p>
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing text_cell rendered" id="cell-id=2"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Basis-vectors">Basis vectors<a class="anchor-link" href="#Basis-vectors">¶</a></h2><p>Standard basis vectors are <strong>row vectors</strong>:</p>
+<h2 id="Choice:-$W_Q-=-e_2$,-$W_K-=-e_3$">Choice: $W_Q = e_2$, $W_K = e_3$<a class="anchor-link" href="#Choice:-$W_Q-=-e_2$,-$W_K-=-e_3$">¶</a></h2><p>Setting $W_Q = e_2$ and $W_K = e_3$ (column vectors, 0-indexed) gives:</p>
 <p>$$
-e_i \in \mathbb{R}^{1 \times d}
+Q_i = x_i \cdot e_2 = x_i[2], \qquad K_j = x_j \cdot e_3 = x_j[3]
 $$</p>
-<p>Example:</p>
+<p>Index 2 is the token dimension for $t_2$, and index 3 is the token dimension for $t_3$. So:</p>
+<ul>
+<li>$Q_i = 1$ if and only if the token at context position $i$ is $t_2$, else $0$.</li>
+<li>$K_j = 1$ if and only if the token at context position $j$ is $t_3$, else $0$.</li>
+</ul>
 <p>$$
-e_1 = [1,0,0,0,0,0,0,0,0]
+S_{ij} = Q_i K_j = \begin{cases} 1 &amp; \text{token at } i \text{ is } t_2 \text{ AND token at } j \text{ is } t_3 \\ 0 &amp; \text{otherwise} \end{cases}
 $$</p>
+<p>The relationship matrix is:</p>
+<p>$$
+R = e_2 e_3^T
+$$</p>
+<p>a $d \times d$ matrix with a <strong>single 1 at position $[2, 3]$</strong> and zeros everywhere else. It encodes a single rule: <em>"$t_2$ as query attends to $t_3$ as key"</em>.</p>
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing text_cell rendered" id="cell-id=3"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Token-and-position-representation">Token and position representation<a class="anchor-link" href="#Token-and-position-representation">¶</a></h2><p>Token <code>t</code> at position <code>p</code> is represented by</p>
+<h2 id="Attention-Scale-Factor-$%5Calpha$">Attention Scale Factor $\alpha$<a class="anchor-link" href="#Attention-Scale-Factor-$%5Calpha$">¶</a></h2><p>Standard scaled dot-product attention divides by $\sqrt{d_k}$ to prevent softmax saturation. Here we replace that with an explicit <strong>attention scale factor</strong> $\alpha$ that multiplies the query (but not the key):</p>
 <p>$$
-x(t,p) = e_t + e_{V+p}
+S_{ij} = (\alpha\, Q_i)\, K_j = \alpha\, Q_i K_j
 $$</p>
-<p>Thus each vector has <strong>two non‑zero coordinates</strong>:</p>
-<ul>
-<li>one for the token</li>
-<li>one for the position</li>
-</ul>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered" id="cell-id=4"><div class="prompt input_prompt">
-</div><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Stacked-input-matrix">Stacked input matrix<a class="anchor-link" href="#Stacked-input-matrix">¶</a></h2><p>Stacking token vectors gives</p>
+<p>This is equivalent to scaling the entire score matrix: $S_{\alpha} = \alpha S$.</p>
+<p><strong>Effect on softmax.</strong> For a row with scores $(0, \alpha, 0, \ldots)$ vs $(0, 1, 0, \ldots)$, the probability on the attended position goes from $\sigma(\alpha) = e^\alpha / (e^\alpha + n-1)$ to $\sigma(1)$. With our binary scores and $n$ visible positions, the attended weight is:</p>
 <p>$$
-X \in \mathbb{R}^{L \times d}
+P_{\text{attended}} = \frac{e^\alpha}{e^\alpha + (n-1)}
 $$</p>
-<p>Each row corresponds to one position in the sequence.</p>
+<p>For $\alpha = 1$: depends on $n$. For $\alpha = 10$: $\approx e^{10}/(e^{10}+n) \approx 1$ — near-deterministic attention.</p>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered" id="cell-id=5"><div class="prompt input_prompt">
-</div><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Linear-projections">Linear projections<a class="anchor-link" href="#Linear-projections">¶</a></h2><p>$$
-Q = X W_Q
-$$</p>
-<p>$$
-K = X W_K
-$$</p>
-<p>$$
-V = X W_V
-$$</p>
-<p>with</p>
-<p>$$
-W_Q, W_K, W_V \in \mathbb{R}^{d \times d}
-$$</p>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered" id="cell-id=6"><div class="prompt input_prompt">
-</div><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Attention-scores">Attention scores<a class="anchor-link" href="#Attention-scores">¶</a></h2><p>$$
-S = Q K^T
-$$</p>
-<p>Shape:</p>
-<p>$$
-S \in \mathbb{R}^{L \times L}
-$$</p>
-<p>Entry $S_{ij}$ is the score between query position $i$ and key position $j$.</p>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered" id="cell-id=7"><div class="prompt input_prompt">
-</div><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Attention-probabilities">Attention probabilities<a class="anchor-link" href="#Attention-probabilities">¶</a></h2><p>Apply row‑wise softmax:</p>
-<p>$$
-P = \text{softmax}(S)
-$$</p>
-<p>Each row sums to 1.</p>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered" id="cell-id=8"><div class="prompt input_prompt">
-</div><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Attention-output">Attention output<a class="anchor-link" href="#Attention-output">¶</a></h2><p>$$
-H = P V
-$$</p>
-<p>Shapes:</p>
-<ul>
-<li>$P \in \mathbb{R}^{L \times L}$</li>
-<li>$V \in \mathbb{R}^{L \times d_v}$</li>
-<li>$H \in \mathbb{R}^{L \times d_v}$</li>
-</ul>
-<p>Row $i$:</p>
-<p>$$
-h_i = \sum_{j=1}^{L} P_{ij} v_j
-$$</p>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered" id="cell-id=9"><div class="prompt input_prompt">
-</div><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Final-output-(optional)">Final output (optional)<a class="anchor-link" href="#Final-output-(optional)">¶</a></h2><p>If predicting a token distribution:</p>
-<p>$$
-z = h_L W_O
-$$</p>
-<p>$$
-p = \text{softmax}(z)
-$$</p>
-<p>where</p>
-<p>$$
-W_O \in \mathbb{R}^{d_v \times V}
-$$</p>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered" id="cell-id=10">
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=4">
 <div class="input">
 <div class="prompt input_prompt">In [ ]:</div>
 <div class="inner_cell">
@@ -13243,13 +13172,159 @@ $$</p>
 <div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn.functional</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">F</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="c1"># Parameters from context</span>
-<span class="n">V</span> <span class="o">=</span> <span class="mi">5</span>           <span class="c1"># Vocabulary size</span>
+<span class="c1"># Dimensions</span>
+<span class="n">V</span> <span class="o">=</span> <span class="mi">5</span>           <span class="c1"># Vocabulary size: tokens t0..t4</span>
 <span class="n">L</span> <span class="o">=</span> <span class="mi">4</span>           <span class="c1"># Context length</span>
-<span class="n">d_model</span> <span class="o">=</span> <span class="n">V</span> <span class="o">+</span> <span class="n">L</span> <span class="c1"># Dimension (9)</span>
+<span class="n">d</span> <span class="o">=</span> <span class="n">V</span> <span class="o">+</span> <span class="n">L</span>       <span class="c1"># Embedding dimension = 9</span>
+<span class="n">d_k</span> <span class="o">=</span> <span class="mi">1</span>         <span class="c1"># Key/query dimension (rank-1)</span>
+
+<span class="c1"># Attention scale factor — multiplies the query before scoring.</span>
+<span class="c1"># Larger alpha sharpens the softmax distribution.</span>
+<span class="n">alpha</span> <span class="o">=</span> <span class="mi">10</span>
+
+<span class="c1"># Embedding index labels (used throughout for axis labels)</span>
+<span class="n">dim_labels</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"t</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">V</span><span class="p">)]</span> <span class="o">+</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"p</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">)]</span>
 </pre></div>
 </div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=5">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">get_input_matrix</span><span class="p">(</span><span class="n">token_indices</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Build X in R^{L x d}. Row i = e_{t_i} + e_{V+i}."""</span>
+    <span class="n">tokens</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">token_indices</span><span class="p">)</span>
+    <span class="n">content</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">one_hot</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="n">V</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>          <span class="c1"># (L, V)</span>
+    <span class="n">position</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">one_hot</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">L</span><span class="p">),</span> <span class="n">num_classes</span><span class="o">=</span><span class="n">L</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="c1"># (L, L)</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">content</span><span class="p">,</span> <span class="n">position</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>               <span class="c1"># (L, d)</span>
+
+<span class="c1"># Sequence chosen so that t2 and t3 both appear at multiple positions,</span>
+<span class="c1"># creating an interesting causal attention pattern.</span>
+<span class="c1"># pos 0: t2  (Q=1, K=0)</span>
+<span class="c1"># pos 1: t3  (Q=0, K=1)  &lt;- only key position visible to pos 2 and 3</span>
+<span class="c1"># pos 2: t2  (Q=1, K=0)</span>
+<span class="c1"># pos 3: t3  (Q=0, K=1)</span>
+<span class="n">sequence</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">get_input_matrix</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Sequence:"</span><span class="p">,</span> <span class="n">sequence</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"X (input matrix):"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=6"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="PyTorch-Convention-Note">PyTorch Convention Note<a class="anchor-link" href="#PyTorch-Convention-Note">¶</a></h2><p><code>nn.Linear(d, d_k, bias=False)</code> stores its weight as shape <code>(d_k, d)</code> — transposed relative to the mathematical column vector $W_Q \in \mathbb{R}^{d \times d_k}$. The forward pass computes $XW_Q^{\text{weight},T}$, which equals $XW_Q$ in our notation.</p>
+<p>To set $W_Q = e_2$ (column), we set <code>W_Q.weight[0, 2] = 1</code> (row vector $e_2^T$).</p>
+<p>The mathematical column vectors recovered as:
+$$
+W_Q^{\text{math}} = W_Q.\text{weight}^T, \qquad W_K^{\text{math}} = W_K.\text{weight}^T
+$$</p>
+<p>So in code: <code>R = W_Q.weight.T @ W_K.weight</code> gives $R = W_Q W_K^T \in \mathbb{R}^{d \times d}$.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=7">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Rank-1 projection matrices: d -&gt; d_k=1</span>
+<span class="n">W_Q</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">d_k</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">W_K</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">d_k</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="n">W_Q</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">d_k</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="ow">and</span> <span class="n">W_K</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">d_k</span><span class="p">,</span> <span class="n">d</span><span class="p">),</span> \
+    <span class="sa">f</span><span class="s2">"Expected both weights to have shape </span><span class="si">{</span><span class="p">(</span><span class="n">d_k</span><span class="p">,</span><span class="w"> </span><span class="n">d</span><span class="p">)</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">W_Q</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">W_K</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span>
+
+<span class="c1"># Set W_Q = e_2, W_K = e_3 (0-indexed basis vectors)</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">W_Q</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">zero_</span><span class="p">()</span>    <span class="c1"># shape (1, d)</span>
+    <span class="n">W_Q</span><span class="o">.</span><span class="n">weight</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># selects embedding dimension 2 (token t2)</span>
+    <span class="n">W_K</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">zero_</span><span class="p">()</span>    <span class="c1"># shape (1, d)</span>
+    <span class="n">W_K</span><span class="o">.</span><span class="n">weight</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># selects embedding dimension 3 (token t3)</span>
+
+<span class="n">Q</span> <span class="o">=</span> <span class="n">W_Q</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>  <span class="c1"># (L, 1) — scalar query per position</span>
+<span class="n">K</span> <span class="o">=</span> <span class="n">W_K</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>  <span class="c1"># (L, 1) — scalar key per position</span>
+
+<span class="k">assert</span> <span class="n">Q</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">d_k</span><span class="p">),</span> <span class="sa">f</span><span class="s2">"Expected Q shape </span><span class="si">{</span><span class="p">(</span><span class="n">L</span><span class="p">,</span><span class="w"> </span><span class="n">d_k</span><span class="p">)</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="n">Q</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
+<span class="k">assert</span> <span class="n">K</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">d_k</span><span class="p">),</span> <span class="sa">f</span><span class="s2">"Expected  shape </span><span class="si">{</span><span class="p">(</span><span class="n">L</span><span class="p">,</span><span class="w"> </span><span class="n">d_k</span><span class="p">)</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="n">K</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Q (query scalars per position):"</span><span class="p">,</span> <span class="n">Q</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"K (key scalars per position):  "</span><span class="p">,</span> <span class="n">K</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=8">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Relationship matrix R = W_Q W_K^T in R^{d x d}</span>
+<span class="c1"># Using PyTorch convention: mathematical W_Q = W_Q.weight.T</span>
+<span class="n">R</span> <span class="o">=</span> <span class="n">W_Q</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">W_K</span><span class="o">.</span><span class="n">weight</span>   <span class="c1"># (d, 1) @ (1, d) = (d, d), rank-1</span>
+
+<span class="c1"># Unscaled score matrix via S = X R X^T (equivalent to Q K^T)</span>
+<span class="n">S</span> <span class="o">=</span> <span class="n">X</span> <span class="o">@</span> <span class="n">R</span> <span class="o">@</span> <span class="n">X</span><span class="o">.</span><span class="n">T</span>                 <span class="c1"># (L, L)</span>
+
+<span class="c1"># Scaled scores: alpha multiplies the query, sharpening softmax</span>
+<span class="n">S_scaled</span> <span class="o">=</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">S</span>            <span class="c1"># (L, L)</span>
+
+<span class="c1"># Verify equivalence with direct computation</span>
+<span class="n">S_direct</span> <span class="o">=</span> <span class="p">(</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">Q</span><span class="p">)</span> <span class="o">@</span> <span class="n">K</span><span class="o">.</span><span class="n">T</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Max |(alpha*Q) K^T - S_scaled|:"</span><span class="p">,</span> <span class="p">(</span><span class="n">S_scaled</span> <span class="o">-</span> <span class="n">S_direct</span><span class="p">)</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">R (nonzero entries only):"</span><span class="p">)</span>
+<span class="n">nz</span> <span class="o">=</span> <span class="n">R</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">nz</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  R[</span><span class="si">{</span><span class="n">idx</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">idx</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">] = </span><span class="si">{</span><span class="n">R</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">idx</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+          <span class="sa">f</span><span class="s2">"  (</span><span class="si">{</span><span class="n">dim_labels</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">dim_labels</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">S (unscaled, alpha=1):</span><span class="se">\n</span><span class="si">{</span><span class="n">S</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">S_scaled (alpha=</span><span class="si">{</span><span class="n">alpha</span><span class="si">}</span><span class="s2">):</span><span class="se">\n</span><span class="si">{</span><span class="n">S_scaled</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=9">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Causal masking applied to the scaled scores</span>
+<span class="n">mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tril</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">L</span><span class="p">))</span>
+<span class="n">S_scaled_masked</span> <span class="o">=</span> <span class="n">S_scaled</span><span class="o">.</span><span class="n">masked_fill</span><span class="p">(</span><span class="n">mask</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="s1">'-inf'</span><span class="p">))</span>
+<span class="n">P</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">S_scaled_masked</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"P (attention probabilities, alpha=</span><span class="si">{</span><span class="n">alpha</span><span class="si">}</span><span class="s2">, causally masked):"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">P</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=10"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Visualization">Visualization<a class="anchor-link" href="#Visualization">¶</a></h2><p>Three panels:</p>
+<ol>
+<li><p><strong>$R$ (relationship matrix, $d \times d$):</strong> A single nonzero entry at $[t_2, t_3]$, encoding the rule <em>"$t_2$-query attends to $t_3$-key"</em>. The dashed line separates token dimensions (left/top) from position dimensions (right/bottom).</p>
+</li>
+<li><p><strong>$S$ (score matrix, $L \times L$, unmasked):</strong> Binary — entry $(i,j)=1$ iff position $i$ holds $t_2$ and position $j$ holds $t_3$.</p>
+</li>
+<li><p><strong>$P$ (attention probabilities, $L \times L$, causally masked):</strong> The distribution each query position places over its past (including itself). Rows for $t_3$-positions (zero query) are uniform over the visible window.</p>
+</li>
+</ol>
 </div>
 </div>
 </div>
@@ -13258,137 +13333,237 @@ $$</p>
 <div class="prompt input_prompt">In [ ]:</div>
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">get_input_matrix</span><span class="p">(</span><span class="n">token_indices</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""</span>
-<span class="sd">    Constructs X in R^{L x d} using torch operations</span>
-<span class="sd">    """</span>
-    <span class="c1"># Ensure tokens are a tensor</span>
-    <span class="n">tokens</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">token_indices</span><span class="p">)</span>
-    
-    <span class="c1"># Content: e_t</span>
-    <span class="n">content_eb</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">one_hot</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="n">V</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="c1"># (L, V)</span>
-    
-    <span class="c1"># Position: e_{V+p}</span>
-    <span class="n">pos_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">L</span><span class="p">)</span>
-    <span class="n">pos_eb</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">one_hot</span><span class="p">(</span><span class="n">pos_indices</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="n">L</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="c1"># (L, L)</span>
-    
-    <span class="c1"># Concatenate to form x(t,p) = e_t + e_{V+p}</span>
-    <span class="n">X</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">content_eb</span><span class="p">,</span> <span class="n">pos_eb</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span> <span class="c1"># (L, V+L)</span>
-    <span class="k">return</span> <span class="n">X</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">R_np</span> <span class="o">=</span> <span class="n">R</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="n">S_np</span> <span class="o">=</span> <span class="n">S</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="n">P_np</span> <span class="o">=</span> <span class="n">P</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
 
-<span class="c1"># Example Sequence: [0, 2, 1, 4]</span>
-<span class="n">X</span> <span class="o">=</span> <span class="n">get_input_matrix</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">])</span>
+<span class="n">pos_labels</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"pos </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="se">\n</span><span class="s2">(t</span><span class="si">{</span><span class="n">sequence</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s2">)"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">)]</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">18</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+
+<span class="c1"># ── Panel 1: R ──────────────────────────────────────────────────────────────</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">R_absmax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">R_np</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="mf">1e-6</span><span class="p">)</span>
+<span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">R_np</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"RdBu_r"</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=-</span><span class="n">R_absmax</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">R_absmax</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">"$R = W_Q W_K^T \in \mathbb</span><span class="si">{R}</span><span class="s2">^{d \times d}$"</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">(rank-1 relationship matrix)"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">11</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Key dimension"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Query dimension"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">dim_labels</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">45</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"right"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">(</span><span class="n">dim_labels</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">V</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"black"</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s2">"--"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">V</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"black"</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s2">"--"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.046</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">R_np</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">R_np</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span>
+                    <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">"bold"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"white"</span><span class="p">)</span>
+
+<span class="c1"># ── Panel 2: S (unscaled, unmasked) ─────────────────────────────────────────</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">im2</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">S_np</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"Blues"</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="n">S_np</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="mi">1</span><span class="p">))</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">"$S = X R X^T \in \mathbb</span><span class="si">{R}</span><span class="s2">^{L \times L}$"</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">(scores, unscaled, unmasked)"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">11</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Key position j"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Query position i"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">pos_labels</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">(</span><span class="n">pos_labels</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im2</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.046</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">):</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">S_np</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="s2">"white"</span> <span class="k">if</span> <span class="n">S_np</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.5</span> <span class="k">else</span> <span class="s2">"black"</span><span class="p">)</span>
+
+<span class="c1"># ── Panel 3: P (scaled, causally masked) ─────────────────────────────────────</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<span class="n">im3</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">P_np</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"Oranges"</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span>
+    <span class="sa">r</span><span class="s2">"$P = \mathrm</span><span class="si">{softmax}</span><span class="s2">(\alpha S_{\mathrm</span><span class="si">{masked}</span><span class="s2">})$"</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">(attention probs, $</span><span class="se">\\</span><span class="s2">alpha=</span><span class="si">{</span><span class="n">alpha</span><span class="si">}</span><span class="s2">$, causal)"</span><span class="p">,</span>
+    <span class="n">fontsize</span><span class="o">=</span><span class="mi">11</span>
+<span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Key position j"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Query position i"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">pos_labels</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">(</span><span class="n">pos_labels</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im3</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.046</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">):</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">P_np</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="s2">"white"</span> <span class="k">if</span> <span class="n">P_np</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.5</span> <span class="k">else</span> <span class="s2">"black"</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
+    <span class="sa">r</span><span class="s2">"Rank-1 attention: $W_Q = e_2$ (queries $t_2$), $W_K = e_3$ (keys $t_3$)"</span>
+    <span class="sa">f</span><span class="s2">",  $</span><span class="se">\\</span><span class="s2">alpha=</span><span class="si">{</span><span class="n">alpha</span><span class="si">}</span><span class="s2">$</span><span class="se">\n</span><span class="s2">Sequence: </span><span class="si">{</span><span class="n">sequence</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+    <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span>
+<span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing code_cell rendered" id="cell-id=12">
-<div class="input">
-<div class="prompt input_prompt">In [ ]:</div>
-<div class="inner_cell">
-<div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Standard transformer conventions</span>
-<span class="c1"># We use bias=False to strictly follow the notation Q = XW_Q</span>
-<span class="n">W_Q</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="n">W_K</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="n">W_V</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="c1"># d_v = V</span>
-
-<span class="c1"># Initialize as identity for the 'Probabilistic Pointer' behavior</span>
-<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-    <span class="n">W_Q</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">d_model</span><span class="p">))</span>
-    <span class="n">W_K</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">d_model</span><span class="p">))</span>
-    <span class="c1"># Identity for the first V components</span>
-    <span class="n">W_V</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">d_model</span><span class="p">)[:</span><span class="n">V</span><span class="p">,</span> <span class="p">:])</span> 
-
-<span class="n">Q</span> <span class="o">=</span> <span class="n">W_Q</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-<span class="n">K</span> <span class="o">=</span> <span class="n">W_K</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-<span class="n">V_mat</span> <span class="o">=</span> <span class="n">W_V</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered" id="cell-id=13">
-<div class="input">
-<div class="prompt input_prompt">In [ ]:</div>
-<div class="inner_cell">
-<div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># S = Q K^T</span>
-<span class="n">scores</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">K</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
-
-<span class="c1"># Causal Masking</span>
-<span class="n">mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tril</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">L</span><span class="p">))</span>
-<span class="n">scores</span> <span class="o">=</span> <span class="n">scores</span><span class="o">.</span><span class="n">masked_fill</span><span class="p">(</span><span class="n">mask</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="s1">'-inf'</span><span class="p">))</span>
-
-<span class="c1"># P = softmax(S)</span>
-<span class="n">P</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">scores</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
-
-<span class="c1"># H = P V</span>
-<span class="n">H</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">V_mat</span><span class="p">)</span>
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered" id="cell-id=14"><div class="prompt input_prompt">
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=12"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Relationship-Matrix-R">Relationship Matrix R<a class="anchor-link" href="#Relationship-Matrix-R">¶</a></h2><p>The score matrix can be factored through a <strong>relationship matrix</strong> $R \in \mathbb{R}^{d \times d}$ that captures pairwise attention affinities between <strong>embedding directions</strong> (tokens/positions), independently of any specific input sequence.</p>
-<p>Starting from $S = QK^T$ and substituting $Q = XW_Q$, $K = XW_K$:</p>
-<p>$$
-S = (XW_Q)(XW_K)^T = X \underbrace{(W_Q W_K^T)}_{R} X^T
-$$</p>
-<p>So:</p>
-<p>$$
-\boxed{R = W_Q W_K^T \in \mathbb{R}^{d \times d}, \qquad S_{\text{alt}} = X R X^T \in \mathbb{R}^{L \times L}}
-$$</p>
-<p><strong>Interpretation:</strong> Entry $R_{ab}$ measures how much embedding direction $e_a$ (as a query) attends to embedding direction $e_b$ (as a key). Because the token representations $x(t,p) = e_t + e_{V+p}$ are sums of basis vectors, the score between position $i$ and position $j$ decomposes as a sum of $R$ entries over the active (token, position) pairs:</p>
-<p>$$
-S_{ij} = x_i R x_j^T = R_{t_i, t_j} + R_{t_i, V+p_j} + R_{V+p_i, t_j} + R_{V+p_i, V+p_j}
-$$</p>
-<p>This lets us read off <strong>which token-to-token, token-to-position, and position-to-position interactions</strong> drive each attention score — without needing to enumerate sequences.</p>
+<h2 id="Interpretation">Interpretation<a class="anchor-link" href="#Interpretation">¶</a></h2><p><strong>$R$ is a single-rule lookup table.</strong> With $W_Q = e_2$ and $W_K = e_3$, the relationship matrix has exactly one nonzero entry $R[2, 3] = 1$. This encodes a single directional rule operating purely in token space:</p>
+<blockquote>
+<p><em>token $t_2$ (as query) attends to token $t_3$ (as key)</em></p>
+</blockquote>
+<p><strong>$S$ is binary.</strong> Because $x(t,p)$ is a 0/1 vector, each query scalar $Q_i = x_i[2] \in \{0,1\}$ and each key scalar $K_j = x_j[3] \in \{0,1\}$, so $S_{ij} = Q_i K_j \in \{0,1\}$.</p>
+<p><strong>Attention concentrates on $t_3$-positions.</strong> After causal masking:</p>
+<ul>
+<li>$t_2$-query positions (pos 0 and pos 2) have $Q_i = 1$: they attend only to visible $t_3$-positions.</li>
+<li>$t_3$-query positions (pos 1 and pos 3) have $Q_i = 0$: all their scores are 0, so softmax gives a <strong>uniform distribution</strong> over the visible window — these positions are "blind" under this QK pair.</li>
+</ul>
+<p><strong>No position information is used.</strong> $R$ has no nonzero entries in the position block (indices $V\ldots V+L-1$). Attention here is determined <strong>entirely by token identity</strong>, not by where tokens appear in the context. The next experiment will introduce position basis vectors into $W_Q$ or $W_K$ to break this symmetry.</p>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing code_cell rendered" id="cell-id=15">
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=13"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Value-and-Output-Matrices">Value and Output Matrices<a class="anchor-link" href="#Value-and-Output-Matrices">¶</a></h2><p>To produce a next-token prediction we need two more matrices.</p>
+<h3 id="Value-matrix-$W_V-%5Cin-%5Cmathbb%7BR%7D%5E%7Bd-%5Ctimes-d_v%7D$">Value matrix $W_V \in \mathbb{R}^{d \times d_v}$<a class="anchor-link" href="#Value-matrix-$W_V-%5Cin-%5Cmathbb%7BR%7D%5E%7Bd-%5Ctimes-d_v%7D$">¶</a></h3><p>Applied to the input to form the <strong>value vectors</strong>:</p>
+<p>$$
+V_{\text{mat}} = X W_V \in \mathbb{R}^{L \times d_v}
+$$</p>
+<p>The attention output is then:</p>
+<p>$$
+H = P V_{\text{mat}} \in \mathbb{R}^{L \times d_v}
+$$</p>
+<p>Row $i$ of $H$ is a weighted sum of value vectors: $h_i = \sum_j P_{ij} v_j$.</p>
+<p>We use $W_V = I_d$ (the $d \times d$ identity), so $V_{\text{mat}} = X$ — each value vector is just the raw token embedding. This means $H = PX$: each row $h_i$ is an <strong>attention-weighted average of the input embeddings</strong>.</p>
+<h3 id="Output-matrix-$W_O-%5Cin-%5Cmathbb%7BR%7D%5E%7Bd_v-%5Ctimes-V%7D$">Output matrix $W_O \in \mathbb{R}^{d_v \times V}$<a class="anchor-link" href="#Output-matrix-$W_O-%5Cin-%5Cmathbb%7BR%7D%5E%7Bd_v-%5Ctimes-V%7D$">¶</a></h3><p>Projects the attention output down to a logit vector over the vocabulary:</p>
+<p>$$
+z = h_L \, W_O \in \mathbb{R}^{1 \times V}
+$$</p>
+<p>$$
+\hat{p} = \text{softmax}(z) \in \Delta^{V-1}
+$$</p>
+<p>We use $W_O = I_d[{:V}, :]^T \in \mathbb{R}^{d \times V}$ — i.e. the first $V$ columns of the identity — which simply <strong>extracts the token block</strong> (dimensions $0\ldots V{-}1$) of $h_L$ and discards the position block (dimensions $V\ldots d{-}1$).</p>
+<h3 id="Why-this-gives-a-frequency-weighted-combination">Why this gives a frequency-weighted combination<a class="anchor-link" href="#Why-this-gives-a-frequency-weighted-combination">¶</a></h3><p>Because each embedding $x(t,p) = e_t + e_{V+p}$ has a 1 in dimension $t$ and a 1 in a position dimension, the token block of $h_L$ is:</p>
+<p>$$
+h_L[:V] = \sum_j P_{Lj} \, e_{t_j}
+$$</p>
+<p>This is a <strong>convex combination of one-hot token vectors</strong>, weighted by how much position $L$ attends to each previous position $j$. It is a soft histogram over the attended tokens — a frequency count, re-weighted by attention.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=14">
 <div class="input">
 <div class="prompt input_prompt">In [ ]:</div>
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># R = W_Q W_K^T in the mathematical (row-vector) convention.</span>
-<span class="c1">#</span>
-<span class="c1"># PyTorch's nn.Linear stores weights transposed relative to the mathematical matrix:</span>
-<span class="c1">#   Q = W_Q(X)  computes  X @ W_Q.weight.T   (i.e. mathematical W_Q = W_Q.weight.T)</span>
-<span class="c1">#   K = W_K(X)  computes  X @ W_K.weight.T   (i.e. mathematical W_K = W_K.weight.T)</span>
-<span class="c1">#</span>
-<span class="c1"># So:  R = W_Q_math @ W_K_math^T</span>
-<span class="c1">#         = W_Q.weight.T @ W_K.weight</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># W_V = I_d: values are the raw embeddings, so V_mat = X</span>
+<span class="n">W_V</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>                      <span class="c1"># (d, d)</span>
+<span class="n">V_mat</span> <span class="o">=</span> <span class="n">X</span> <span class="o">@</span> <span class="n">W_V</span>                         <span class="c1"># (L, d) == X</span>
 
-<span class="n">R</span> <span class="o">=</span> <span class="n">W_Q</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">W_K</span><span class="o">.</span><span class="n">weight</span>          <span class="c1"># shape (d_model, d_model)</span>
+<span class="c1"># H = P V_mat: attention-weighted average of embeddings</span>
+<span class="n">H</span> <span class="o">=</span> <span class="n">P</span> <span class="o">@</span> <span class="n">V_mat</span>                           <span class="c1"># (L, d)</span>
 
-<span class="c1"># Alternative score computation: S_alt = X R X^T</span>
-<span class="n">scores_alt</span> <span class="o">=</span> <span class="n">X</span> <span class="o">@</span> <span class="n">R</span> <span class="o">@</span> <span class="n">X</span><span class="o">.</span><span class="n">T</span>               <span class="c1"># shape (L, L)</span>
+<span class="c1"># W_O extracts the token block (first V dims), discarding position dims</span>
+<span class="n">W_O</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">d</span><span class="p">)[:,</span> <span class="p">:</span><span class="n">V</span><span class="p">]</span>              <span class="c1"># (d, V)</span>
 
-<span class="c1"># Verify equivalence with the original score matrix (before masking)</span>
-<span class="n">scores_orig</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">K</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">"Max absolute difference between scores and scores_alt:"</span><span class="p">,</span>
-      <span class="p">(</span><span class="n">scores_alt</span> <span class="o">-</span> <span class="n">scores_orig</span><span class="p">)</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">R (relationship matrix):</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span> <span class="n">R</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">scores_alt:</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span> <span class="n">scores_alt</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+<span class="c1"># Logits and prediction for the last position (the "next token" query)</span>
+<span class="n">h_last</span> <span class="o">=</span> <span class="n">H</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>                          <span class="c1"># (d,)</span>
+<span class="n">z</span> <span class="o">=</span> <span class="n">h_last</span> <span class="o">@</span> <span class="n">W_O</span>                        <span class="c1"># (V,) — token-block of h_last</span>
+<span class="n">p_next</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>           <span class="c1"># (V,) — distribution over vocabulary</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"h_last (attention output for final position):"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">h_last</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Token block of h_last (= z, pre-softmax logits):"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">p_next (predicted next-token distribution):"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">tok_id</span><span class="p">,</span> <span class="n">prob</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">p_next</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()):</span>
+    <span class="n">bar</span> <span class="o">=</span> <span class="s2">"█"</span> <span class="o">*</span> <span class="nb">int</span><span class="p">(</span><span class="n">prob</span> <span class="o">*</span> <span class="mi">40</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  t</span><span class="si">{</span><span class="n">tok_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">prob</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">bar</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Most likely next token: t</span><span class="si">{</span><span class="n">p_next</span><span class="o">.</span><span class="n">argmax</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">}</span><span class="s2">  (prob=</span><span class="si">{</span><span class="n">p_next</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
 </pre></div>
 </div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=15"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Interpretation:-Prediction-for-This-Example">Interpretation: Prediction for This Example<a class="anchor-link" href="#Interpretation:-Prediction-for-This-Example">¶</a></h2><p>The last position (pos 3) holds token $t_3$, which has <strong>query scalar $Q_3 = 0$</strong> — it is a key token, not a query token under this QK pair. All its scores are 0, so after causal masking the softmax is uniform over the four visible positions:</p>
+<p>$$
+P[3, :] = [0.25,\ 0.25,\ 0.25,\ 0.25]
+$$</p>
+<p>The attention output is therefore the <strong>uniform average of all four input embeddings</strong>:</p>
+<p>$$
+h_{\text{last}} = \tfrac{1}{4}(x_0 + x_1 + x_2 + x_3)
+$$</p>
+<p>The sequence is $[t_2, t_3, t_2, t_3]$, so the token block is:</p>
+<p>$$
+h_{\text{last}}[:V] = \tfrac{1}{4}(e_2 + e_3 + e_2 + e_3) = \tfrac{1}{2} e_2 + \tfrac{1}{2} e_3
+$$</p>
+<p>After softmax, $t_2$ and $t_3$ each receive equal probability $\approx 0.5$ (with small residual on $t_0\ldots t_4$ from the position dimensions leaking through, which are symmetric and cancel after softmax).</p>
+<p><strong>Contrast with a $t_2$-query position</strong> (e.g. pos 2, $\alpha=10$): its attention is near-deterministic on the most recent $t_3$ it has seen (pos 1), so $h[2] \approx x_1 = e_3 + e_6$ and the prediction strongly favours $t_3$. The $\alpha$ parameter controls how sharply the model commits to the attended token.</p>
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing text_cell rendered" id="cell-id=16"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Visualizing-R-and-S_alt">Visualizing R and S_alt<a class="anchor-link" href="#Visualizing-R-and-S_alt">¶</a></h2><p>The heatmaps below show:</p>
+<hr/>
+<h2 id="Example-2:-Implementing-a-Conditional-Rule-with-Rank-1-Values">Example 2: Implementing a Conditional Rule with Rank-1 Values<a class="anchor-link" href="#Example-2:-Implementing-a-Conditional-Rule-with-Rank-1-Values">¶</a></h2><p><strong>Differences from Example 1:</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Example 1</th>
+<th>Example 2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sequence</td>
+<td>[t2, t3, t2, t3]</td>
+<td>[t0, t1, t0, t3]</td>
+</tr>
+<tr>
+<td>$\alpha$</td>
+<td>10</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Masking</td>
+<td>causal</td>
+<td><strong>none</strong></td>
+</tr>
+<tr>
+<td>$d_v$</td>
+<td>$d$ (identity $W_V$)</td>
+<td><strong>1</strong> (rank-1 $W_V$)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Target rule:</strong> <em>"If the final token is $t_3$ and $t_1$ appears anywhere in the context, predict $t_2$. Otherwise predict $t_4$."</em></p>
+<h3 id="Design-of-$W_Q$-and-$W_K$">Design of $W_Q$ and $W_K$<a class="anchor-link" href="#Design-of-$W_Q$-and-$W_K$">¶</a></h3><p>The final position holds $t_3$. We want it to query for $t_1$ anywhere in the (unmasked) context:</p>
+<p>$$
+W_Q = e_3, \quad W_K = e_1 \implies Q_i = x_i[3],\quad K_j = x_j[1]
+$$</p>
 <ul>
-<li><strong>Left</strong>: $R \in \mathbb{R}^{d \times d}$ — attention affinity between every pair of embedding dimensions. Axes span token dimensions $0\ldots V{-}1$ then position dimensions $V\ldots V{+}L{-}1$.</li>
-<li><strong>Right</strong>: $S_{\text{alt}} \in \mathbb{R}^{L \times L}$ — pre-softmax scores for the current sequence, computed via $X R X^T$. Compare with the masked version used in attention.</li>
+<li>$Q_i = 1$ iff token at position $i$ is $t_3$ (only pos 3 fires).</li>
+<li>$K_j = 1$ iff token at position $j$ is $t_1$ (only pos 1 fires).</li>
+<li>$S_{ij} = \alpha Q_i K_j$ is nonzero only at $(i,j) = (3,1)$.</li>
 </ul>
+<p>Without masking, position 3 can attend to the $t_1$ at position 1 regardless of where it appears.</p>
+<h3 id="Design-of-$W_V$-(rank-1,-$d_v-=-1$)">Design of $W_V$ (rank-1, $d_v = 1$)<a class="anchor-link" href="#Design-of-$W_V$-(rank-1,-$d_v-=-1$)">¶</a></h3><p>$$
+W_V = e_1 \in \mathbb{R}^{d \times 1} \implies v_j = x_j[1] = \begin{cases} 1 &amp; \text{token at } j \text{ is } t_1 \\ 0 &amp; \text{otherwise} \end{cases}
+$$</p>
+<p>The attention output for the last position is then:</p>
+<p>$$
+h_{\text{last}} = \sum_j P[3,j]\, v_j = P[3,1] \approx 1 \quad \text{(when } t_1 \text{ is present)}
+$$</p>
+<p>$h_{\text{last}}$ is a scalar in $[0,1]$: it reads out <em>how strongly the last position attended to a $t_1$ token</em>.</p>
+<h3 id="Design-of-$W_O$-and-the-%22otherwise%22-limitation">Design of $W_O$ and the "otherwise" limitation<a class="anchor-link" href="#Design-of-$W_O$-and-the-%22otherwise%22-limitation">¶</a></h3><p>$W_O \in \mathbb{R}^{d_v \times V} = \mathbb{R}^{1 \times V}$ maps the scalar $h_{\text{last}}$ to logits over $V$ tokens:</p>
+<p>$$
+z = h_{\text{last}} \cdot w_O^\top \in \mathbb{R}^V
+$$</p>
+<p>To predict $t_2$ when $h_{\text{last}} \approx 1$: set $W_O = \gamma\, e_2^\top$ (large positive weight on $t_2$).</p>
+<p><strong>The "otherwise" problem.</strong> When no $t_1$ is present, $h_{\text{last}} \approx 0$, so $z \approx \mathbf{0}$ regardless of $W_O$ — softmax returns a <strong>uniform distribution</strong>, not a prediction of $t_4$. A bias term or a second attention head would be needed to break this symmetry. This is a fundamental limitation of rank-1, bias-free attention for implementing "default" behaviour.</p>
 </div>
 </div>
 </div>
@@ -13397,53 +13572,46 @@ $$</p>
 <div class="prompt input_prompt">In [ ]:</div>
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.ticker</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ticker</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># ── Example 2 parameters ─────────────────────────────────────────────────────</span>
+<span class="n">alpha2</span> <span class="o">=</span> <span class="mi">5</span>    <span class="c1"># attention scale factor</span>
+<span class="n">gamma</span>  <span class="o">=</span> <span class="mi">5</span>    <span class="c1"># output projection scale (W_O strength)</span>
 
-<span class="n">R_np</span> <span class="o">=</span> <span class="n">R</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
-<span class="n">S_np</span> <span class="o">=</span> <span class="n">scores_alt</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="n">sequence2</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>   <span class="c1"># t0, t1, t0, t3</span>
+<span class="n">X2</span> <span class="o">=</span> <span class="n">get_input_matrix</span><span class="p">(</span><span class="n">sequence2</span><span class="p">)</span>
 
-<span class="c1"># Axis labels for R: t0..t4 then p0..p3</span>
-<span class="n">dim_labels</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"t</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">V</span><span class="p">)]</span> <span class="o">+</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"p</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">)]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Sequence:"</span><span class="p">,</span> <span class="n">sequence2</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"X2 (input matrix):</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span> <span class="n">X2</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
 
-<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="c1"># ── QK projections: W_Q = e_3, W_K = e_1 ────────────────────────────────────</span>
+<span class="n">W_Q2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">d_k</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">W_K2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">d_k</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-<span class="c1"># --- R heatmap ---</span>
-<span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-<span class="n">R_absmax</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">R_np</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
-<span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">R_np</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"RdBu_r"</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=-</span><span class="n">R_absmax</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">R_absmax</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">"Relationship matrix $R = W_Q W_K^T$  $(d \times d)$"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Key dimension (embedding index)"</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Query dimension (embedding index)"</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">d_model</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">dim_labels</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">45</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"right"</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">d_model</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">(</span><span class="n">dim_labels</span><span class="p">)</span>
-<span class="c1"># Draw dividing lines between token and position blocks</span>
-<span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="p">[</span><span class="n">V</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">]:</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"black"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"black"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">)</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.046</span><span class="p">)</span>
-<span class="c1"># Annotate cells with values</span>
-<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d_model</span><span class="p">):</span>
-    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d_model</span><span class="p">):</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">R_np</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
-                <span class="n">color</span><span class="o">=</span><span class="s2">"white"</span> <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">R_np</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">R_absmax</span> <span class="k">else</span> <span class="s2">"black"</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">W_Q2</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">zero_</span><span class="p">();</span> <span class="n">W_Q2</span><span class="o">.</span><span class="n">weight</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>   <span class="c1"># queries t3 positions</span>
+    <span class="n">W_K2</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">zero_</span><span class="p">();</span> <span class="n">W_K2</span><span class="o">.</span><span class="n">weight</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>   <span class="c1"># keys t1 positions</span>
 
-<span class="c1"># --- S_alt heatmap ---</span>
-<span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-<span class="n">im2</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">S_np</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"viridis"</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">"Score matrix $S_{\mathrm</span><span class="si">{alt}</span><span class="s2">} = X R X^T$  $(L \times L)$"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Key position j"</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Query position i"</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">([</span><span class="sa">f</span><span class="s2">"pos </span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">)])</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">([</span><span class="sa">f</span><span class="s2">"pos </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">)])</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im2</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.046</span><span class="p">)</span>
-<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">):</span>
-    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">):</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">S_np</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"white"</span><span class="p">)</span>
+<span class="n">Q2</span> <span class="o">=</span> <span class="n">W_Q2</span><span class="p">(</span><span class="n">X2</span><span class="p">)</span>   <span class="c1"># (L, 1)</span>
+<span class="n">K2</span> <span class="o">=</span> <span class="n">W_K2</span><span class="p">(</span><span class="n">X2</span><span class="p">)</span>   <span class="c1"># (L, 1)</span>
 
-<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Q2 (query scalars):"</span><span class="p">,</span> <span class="n">Q2</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"K2 (key scalars):  "</span><span class="p">,</span> <span class="n">K2</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+
+<span class="c1"># ── Relationship matrix and scores (no masking) ───────────────────────────────</span>
+<span class="n">R2</span>      <span class="o">=</span> <span class="n">W_Q2</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">W_K2</span><span class="o">.</span><span class="n">weight</span>   <span class="c1"># (d, d), rank-1, 1 at [3, 1]</span>
+<span class="n">S2</span>      <span class="o">=</span> <span class="n">X2</span> <span class="o">@</span> <span class="n">R2</span> <span class="o">@</span> <span class="n">X2</span><span class="o">.</span><span class="n">T</span>               <span class="c1"># (L, L)</span>
+<span class="n">S2_scaled</span> <span class="o">=</span> <span class="n">alpha2</span> <span class="o">*</span> <span class="n">S2</span>                 <span class="c1"># (L, L)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">R2 nonzero entries:"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">R2</span><span class="o">.</span><span class="n">nonzero</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  R2[</span><span class="si">{</span><span class="n">idx</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">idx</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">] = </span><span class="si">{</span><span class="n">R2</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">idx</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+          <span class="sa">f</span><span class="s2">"  (</span><span class="si">{</span><span class="n">dim_labels</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">dim_labels</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">S2 (unscaled):</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span> <span class="n">S2</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">S2_scaled (alpha=</span><span class="si">{</span><span class="n">alpha2</span><span class="si">}</span><span class="s2">):</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span> <span class="n">S2_scaled</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
+
+<span class="c1"># ── Attention probabilities (no masking) ─────────────────────────────────────</span>
+<span class="n">P2</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">S2_scaled</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">P2 (no masking, alpha=</span><span class="si">{</span><span class="n">alpha2</span><span class="si">}</span><span class="s2">):</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span> <span class="n">P2</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -13454,13 +13622,375 @@ $$</p>
 <div class="prompt input_prompt">In [ ]:</div>
 <div class="inner_cell">
 <div class="input_area">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># The finite-state machine interpretation</span>
-<span class="n">last_token_probs</span> <span class="o">=</span> <span class="n">P</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="c1"># Probability distribution over previous positions</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># ── Rank-1 value matrix: W_V = e_1, d_v = 1 ──────────────────────────────────</span>
+<span class="c1"># v_j = X2[j, 1] = 1 iff token at position j is t1, else 0</span>
+<span class="n">W_V2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">W_V2</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>             <span class="c1"># selects embedding dimension 1 (token t1)</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Attention weights for the last query: </span><span class="si">{</span><span class="n">last_token_probs</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Resulting distribution over vocabulary: </span><span class="si">{</span><span class="n">H</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="p">:]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="n">V_mat2</span> <span class="o">=</span> <span class="n">X2</span> <span class="o">@</span> <span class="n">W_V2</span>           <span class="c1"># (L, 1) — scalar value per position</span>
+<span class="n">H2</span>     <span class="o">=</span> <span class="n">P2</span> <span class="o">@</span> <span class="n">V_mat2</span>          <span class="c1"># (L, 1) — scalar attention output per position</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Value scalars V_mat2 (1 = t1 token):"</span><span class="p">,</span> <span class="n">V_mat2</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Attention outputs H2:"</span><span class="p">,</span> <span class="n">H2</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">h_last = H2[-1] = </span><span class="si">{</span><span class="n">H2</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">  (≈1 when t1 is strongly attended)"</span><span class="p">)</span>
+
+<span class="c1"># ── Output matrix: W_O = gamma * e_2^T, shape (1, V) ─────────────────────────</span>
+<span class="c1"># z = h_last * W_O  →  logit on t2 proportional to h_last</span>
+<span class="n">W_O2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>
+<span class="n">W_O2</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">gamma</span>           <span class="c1"># only t2 gets a nonzero logit</span>
+
+<span class="n">h_last2</span> <span class="o">=</span> <span class="n">H2</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>          <span class="c1"># (1, 1)</span>
+<span class="n">z2</span>      <span class="o">=</span> <span class="n">h_last2</span> <span class="o">@</span> <span class="n">W_O2</span>               <span class="c1"># (1, V)</span>
+<span class="n">p_next2</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">z2</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>  <span class="c1"># (V,)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">W_O2 (output projection): </span><span class="si">{</span><span class="n">W_O2</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"z2 (logits): </span><span class="si">{</span><span class="n">z2</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">p_next2 (predicted next-token distribution):"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">tok_id</span><span class="p">,</span> <span class="n">prob</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">p_next2</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()):</span>
+    <span class="n">bar</span> <span class="o">=</span> <span class="s2">"█"</span> <span class="o">*</span> <span class="nb">int</span><span class="p">(</span><span class="n">prob</span> <span class="o">*</span> <span class="mi">40</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  t</span><span class="si">{</span><span class="n">tok_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">prob</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">bar</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Most likely next token: t</span><span class="si">{</span><span class="n">p_next2</span><span class="o">.</span><span class="n">argmax</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">}</span><span class="s2">  (prob=</span><span class="si">{</span><span class="n">p_next2</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
 </pre></div>
 </div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=19">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">R2_np</span>  <span class="o">=</span> <span class="n">R2</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="n">S2_np</span>  <span class="o">=</span> <span class="n">S2</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="n">P2_np</span>  <span class="o">=</span> <span class="n">P2</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="n">p_next2_np</span> <span class="o">=</span> <span class="n">p_next2</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+<span class="n">pos_labels2</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"pos </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="se">\n</span><span class="s2">(t</span><span class="si">{</span><span class="n">sequence2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s2">)"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">)]</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">22</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+
+<span class="c1"># ── Panel 1: R2 ───────────────────────────────────────────────────────────────</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">R2_absmax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">R2_np</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="mf">1e-6</span><span class="p">)</span>
+<span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">R2_np</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"RdBu_r"</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=-</span><span class="n">R2_absmax</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">R2_absmax</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">"$R_2 = W_Q W_K^T$"</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span> <span class="o">+</span> <span class="sa">r</span><span class="s2">"($t_3$ queries $t_1$)"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">11</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Key dimension"</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Query dimension"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">dim_labels</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">45</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"right"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">(</span><span class="n">dim_labels</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">V</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"black"</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s2">"--"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">V</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"black"</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s2">"--"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.046</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">R2_np</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">R2_np</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span>
+                    <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">"bold"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"white"</span><span class="p">)</span>
+
+<span class="c1"># ── Panel 2: S2 (unscaled, no masking) ───────────────────────────────────────</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">im2</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">S2_np</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"Blues"</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="n">S2_np</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="mi">1</span><span class="p">))</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">"$S_2 = X R_2 X^T$"</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">(scores, unscaled, no mask)"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">11</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Key position j"</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Query position i"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">pos_labels2</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">(</span><span class="n">pos_labels2</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im2</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.046</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">):</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">S2_np</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="s2">"white"</span> <span class="k">if</span> <span class="n">S2_np</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.5</span> <span class="k">else</span> <span class="s2">"black"</span><span class="p">)</span>
+
+<span class="c1"># ── Panel 3: P2 (no masking) ─────────────────────────────────────────────────</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<span class="n">im3</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">P2_np</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"Oranges"</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">"$P_2 = \mathrm</span><span class="si">{softmax}</span><span class="s2">(\alpha_2 S_2)$"</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">(no mask, $</span><span class="se">\\</span><span class="s2">alpha=</span><span class="si">{</span><span class="n">alpha2</span><span class="si">}</span><span class="s2">$)"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">11</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Key position j"</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Query position i"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">pos_labels2</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">(</span><span class="n">pos_labels2</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im3</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.046</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">):</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">P2_np</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="s2">"white"</span> <span class="k">if</span> <span class="n">P2_np</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.5</span> <span class="k">else</span> <span class="s2">"black"</span><span class="p">)</span>
+
+<span class="c1"># ── Panel 4: next-token prediction ───────────────────────────────────────────</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+<span class="n">colors</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"steelblue"</span><span class="p">]</span> <span class="o">*</span> <span class="n">V</span>
+<span class="n">colors</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"darkorange"</span>   <span class="c1"># highlight t2 (the predicted token)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">V</span><span class="p">),</span> <span class="n">p_next2_np</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">"$</span><span class="se">\\</span><span class="s2">hat</span><span class="se">{{</span><span class="s2">p</span><span class="se">}}</span><span class="s2">$ (next-token prediction)</span><span class="se">\n</span><span class="s2">"</span>
+             <span class="sa">f</span><span class="s2">"$h_</span><span class="se">{{\\</span><span class="s2">mathrm</span><span class="se">{{</span><span class="s2">last</span><span class="se">}}}}</span><span class="s2">=</span><span class="si">{</span><span class="n">H2</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">$,  $</span><span class="se">\\</span><span class="s2">gamma=</span><span class="si">{</span><span class="n">gamma</span><span class="si">}</span><span class="s2">$"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">11</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Token"</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Probability"</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">V</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">([</span><span class="sa">f</span><span class="s2">"t</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">V</span><span class="p">)])</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">p_next2_np</span><span class="p">):</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="o">+</span> <span class="mf">0.02</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">p</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">"bottom"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
+    <span class="sa">r</span><span class="s2">"Example 2: $W_Q=e_3$, $W_K=e_1$, $W_V=e_1$ (rank-1), no masking"</span>
+    <span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Sequence: </span><span class="si">{</span><span class="n">sequence2</span><span class="si">}</span><span class="s2">,  $</span><span class="se">\\</span><span class="s2">alpha=</span><span class="si">{</span><span class="n">alpha2</span><span class="si">}</span><span class="s2">$,  $</span><span class="se">\\</span><span class="s2">gamma=</span><span class="si">{</span><span class="n">gamma</span><span class="si">}</span><span class="s2">$"</span><span class="p">,</span>
+    <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span>
+<span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=20"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Interpretation:-Example-2">Interpretation: Example 2<a class="anchor-link" href="#Interpretation:-Example-2">¶</a></h2><p><strong>What worked — the "if t3 and t1" branch.</strong></p>
+<p>The single nonzero in $R_2$ at $[t_3, t_1]$ creates exactly one nonzero score: $S_2[3,1] = 1$ (pos 3 is $t_3$, pos 1 is $t_1$). After scaling by $\alpha=5$:</p>
+<p>$$
+P_2[3,:] = \text{softmax}([0,\ 5,\ 0,\ 0]) \approx [0.007,\ 0.980,\ 0.007,\ 0.007]
+$$</p>
+<p>The last position attends almost entirely to position 1 ($t_1$). Since $v_1 = 1$ (token is $t_1$) and all other $v_j = 0$:</p>
+<p>$$
+h_{\text{last}} = P_2[3,1] \approx 0.980
+$$</p>
+<p>With $W_O = \gamma\, e_2^\top$ and $\gamma=5$:</p>
+<p>$$
+z = [0,\ 0,\ 0.980 \times 5,\ 0,\ 0] = [0,\ 0,\ 4.9,\ 0,\ 0]
+$$</p>
+<p>$$
+\hat{p}(t_2) = \frac{e^{4.9}}{e^{4.9} + 4} \approx 0.97
+$$</p>
+<p>The rule <em>"if final token is $t_3$ and $t_1$ is present, predict $t_2$"</em> is implemented successfully.</p>
+<p><strong>What failed — the "otherwise predict $t_4$" branch.</strong></p>
+<p>When no $t_1$ is present in the context, all value scalars $v_j = 0$, so $h_{\text{last}} = 0$ and $z = \mathbf{0}$. Softmax of the zero vector is uniform over all $V$ tokens — the model is equally confused about all of them. No choice of $W_O$ can fix this: if $h_{\text{last}} = 0$, no signal reaches $W_O$.</p>
+<p><strong>What would be needed for the "otherwise" branch:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Approach</th>
+<th>Idea</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bias in $W_O$</td>
+<td>$z = h_{\text{last}} \cdot w_O^\top + b$ — $b$ provides a default logit, e.g. large $b[t_4]$</td>
+</tr>
+<tr>
+<td>Second attention head</td>
+<td>Head 1 detects $t_1$; head 2 provides a constant background signal on $t_4$</td>
+</tr>
+<tr>
+<td>Non-zero $W_V$ on $t_4$</td>
+<td>Make values nonzero at non-$t_1$ positions, so $h_{\text{last}} &lt; 1$ signals their presence</td>
+</tr>
+</tbody>
+</table>
+<p>The last option is particularly interesting: if $W_V = e_1 - c\, e_4$ for some $c &gt; 0$, then non-$t_1$ positions contribute negative signal, and $W_O$ can be designed to flip from $t_2$ to $t_4$ as $h_{\text{last}}$ decreases. But this requires $d_v \geq 1$ with signed weights — still achievable at rank-1.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=21"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr/>
+<h2 id="Example-3:-Implementing-Both-Branches-with-$d_v-=-2$">Example 3: Implementing Both Branches with $d_v = 2$<a class="anchor-link" href="#Example-3:-Implementing-Both-Branches-with-$d_v-=-2$">¶</a></h2><p>Everything is the same as Example 2 ($W_Q = e_3$, $W_K = e_1$, $\alpha=5$, no masking) except we now use a <strong>rank-2 value matrix</strong> ($d_v = 2$) that gives the model two independent scalar channels per position.</p>
+<h3 id="The-two-channel-value-design">The two-channel value design<a class="anchor-link" href="#The-two-channel-value-design">¶</a></h3><p>$$
+W_V = \begin{bmatrix} w_0 &amp; w_1 \end{bmatrix} \in \mathbb{R}^{d \times 2}
+$$</p>
+<p><strong>Channel 0</strong> — detects $t_1$:</p>
+<p>$$
+w_0 = e_1 \implies v_j^{(0)} = x_j[1] = \begin{cases} 1 &amp; \text{token at } j \text{ is } t_1 \\ 0 &amp; \text{otherwise} \end{cases}
+$$</p>
+<p><strong>Channel 1</strong> — constant background:</p>
+<p>$$
+w_1 = \tfrac{1}{2}\mathbf{1}_d \implies v_j^{(1)} = x_j \cdot \tfrac{1}{2}\mathbf{1}_d = \tfrac{1}{2}(1 + 1) = 1 \quad \forall j
+$$</p>
+<p>The second equality holds because every token embedding $x(t,p) = e_t + e_{V+p}$ has exactly <strong>two</strong> non-zero entries, both equal to 1. So the dot product with $\frac{1}{2}\mathbf{1}$ always equals $1$, regardless of the token or position.</p>
+<p>Since $P$ is a stochastic matrix (rows sum to 1), channel 1 of the attention output is always exactly 1:</p>
+<p>$$
+h^{(1)} = \sum_j P_{ij} \cdot 1 = 1 \quad \forall i
+$$</p>
+<p>This gives a <strong>free bias</strong> — a constant signal available to $W_O$ even when the attention pattern carries no information about $t_1$.</p>
+<h3 id="Output-matrix-design">Output matrix design<a class="anchor-link" href="#Output-matrix-design">¶</a></h3><p>$W_O \in \mathbb{R}^{2 \times V}$ routes the two channels to vocabulary logits:</p>
+<p>$$
+z = h_{\text{last}} \, W_O = h^{(0)} \cdot W_O[0,:] + \underbrace{1}_{\displaystyle h^{(1)}} \cdot W_O[1,:]
+$$</p>
+<p>We set:</p>
+<p>$$
+W_O[0,:] = \gamma\,(e_2 - e_4)^\top \qquad \text{(channel 0: boost } t_2\text{, suppress }t_4\text{)}
+$$</p>
+<p>$$
+W_O[1,:] = \gamma\, e_4^\top \qquad\qquad\quad \text{(channel 1: default boost for }t_4\text{)}
+$$</p>
+<p><strong>When $t_1$ is present</strong> ($h^{(0)} \approx 1$):</p>
+<p>$$
+z \approx \gamma(e_2 - e_4) + \gamma e_4 = \gamma\, e_2 \implies \hat{p}(t_2) \approx 1 \checkmark
+$$</p>
+<p><strong>When $t_1$ is absent</strong> ($h^{(0)} \approx 0$):</p>
+<p>$$
+z \approx \gamma\, e_4 \implies \hat{p}(t_4) \approx 1 \checkmark
+$$</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=22">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">gamma3</span> <span class="o">=</span> <span class="mi">5</span>   <span class="c1"># output scale (same alpha2=5 and W_Q2/W_K2 reused from Example 2)</span>
+<span class="n">d_v3</span>   <span class="o">=</span> <span class="mi">2</span>
+
+<span class="c1"># ── Value matrix W_V3: d x 2 ──────────────────────────────────────────────────</span>
+<span class="n">W_V3</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">d_v3</span><span class="p">)</span>
+<span class="n">W_V3</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">d</span><span class="p">);</span> <span class="n">W_V3</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>   <span class="c1"># channel 0: e_1 (detects t1)</span>
+<span class="n">W_V3</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>                 <span class="c1"># channel 1: 1/2 * 1  (constant = 1 per token)</span>
+
+<span class="c1"># ── Output matrix W_O3: 2 x V ────────────────────────────────────────────────</span>
+<span class="n">W_O3</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">d_v3</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>
+<span class="n">W_O3</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span>  <span class="n">gamma3</span>   <span class="c1"># channel 0 boosts t2 ...</span>
+<span class="n">W_O3</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">gamma3</span>   <span class="c1"># ... and suppresses t4</span>
+<span class="n">W_O3</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span> <span class="o">=</span>  <span class="n">gamma3</span>   <span class="c1"># channel 1 (default) boosts t4</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"W_V3 (d × 2):"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">W_V3</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">W_O3 (2 × V):"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">W_O3</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Expected logits when t1 present  (h=[1,1]):  z = </span><span class="si">{</span><span class="p">(</span><span class="n">W_O3</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="n">W_O3</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Expected logits when t1 absent   (h=[0,1]):  z = </span><span class="si">{</span><span class="n">W_O3</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=23">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">run_example3</span><span class="p">(</span><span class="n">seq</span><span class="p">,</span> <span class="n">label</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Full forward pass for Example 3 given a token sequence."""</span>
+    <span class="n">X_</span>     <span class="o">=</span> <span class="n">get_input_matrix</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span>
+
+    <span class="c1"># QK (same as Example 2: W_Q=e_3, W_K=e_1)</span>
+    <span class="n">Q_</span>     <span class="o">=</span> <span class="n">W_Q2</span><span class="p">(</span><span class="n">X_</span><span class="p">)</span>
+    <span class="n">K_</span>     <span class="o">=</span> <span class="n">W_K2</span><span class="p">(</span><span class="n">X_</span><span class="p">)</span>
+    <span class="n">S_</span>     <span class="o">=</span> <span class="n">alpha2</span> <span class="o">*</span> <span class="p">(</span><span class="n">Q_</span> <span class="o">@</span> <span class="n">K_</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>          <span class="c1"># scaled scores, no masking</span>
+    <span class="n">P_</span>     <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">S_</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># Value and output</span>
+    <span class="n">V_mat_</span> <span class="o">=</span> <span class="n">X_</span> <span class="o">@</span> <span class="n">W_V3</span>                     <span class="c1"># (L, 2)</span>
+    <span class="n">H_</span>     <span class="o">=</span> <span class="n">P_</span> <span class="o">@</span> <span class="n">V_mat_</span>                    <span class="c1"># (L, 2)</span>
+    <span class="n">h_last_</span><span class="o">=</span> <span class="n">H_</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>                         <span class="c1"># (2,)</span>
+    <span class="n">z_</span>     <span class="o">=</span> <span class="n">h_last_</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">@</span> <span class="n">W_O3</span>    <span class="c1"># (1, V)</span>
+    <span class="n">p_next_</span><span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">z_</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="si">{</span><span class="s1">'='</span><span class="o">*</span><span class="mi">55</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Sequence: </span><span class="si">{</span><span class="n">seq</span><span class="si">}</span><span class="s2">  [</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">]"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Q  (scalars): </span><span class="si">{</span><span class="n">Q_</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  K  (scalars): </span><span class="si">{</span><span class="n">K_</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  P[-1] (last row): </span><span class="si">{</span><span class="n">P_</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  V_mat (channel 0, 1): </span><span class="si">{</span><span class="n">V_mat_</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  h_last = [</span><span class="si">{</span><span class="n">h_last_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">h_last_</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">]"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  z (logits):  </span><span class="si">{</span><span class="n">z_</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  p_next: </span><span class="si">{</span><span class="p">[</span><span class="sa">f</span><span class="s1">'t</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">=</span><span class="si">{</span><span class="n">p</span><span class="si">:</span><span class="s1">.3f</span><span class="si">}</span><span class="s1">'</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="nb">enumerate</span><span class="p">(</span><span class="n">p_next_</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  → Predicted: t</span><span class="si">{</span><span class="n">p_next_</span><span class="o">.</span><span class="n">argmax</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">}</span><span class="s2">  (p=</span><span class="si">{</span><span class="n">p_next_</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">P_</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">p_next_</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">h_last_</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+<span class="c1"># Branch 1: t1 IS present — expect t2</span>
+<span class="n">P3a</span><span class="p">,</span> <span class="n">pn3a</span><span class="p">,</span> <span class="n">h3a</span> <span class="o">=</span> <span class="n">run_example3</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="s2">"t1 present → expect t2"</span><span class="p">)</span>
+
+<span class="c1"># Branch 2: t1 is ABSENT — expect t4</span>
+<span class="n">P3b</span><span class="p">,</span> <span class="n">pn3b</span><span class="p">,</span> <span class="n">h3b</span> <span class="o">=</span> <span class="n">run_example3</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="s2">"t1 absent  → expect t4"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered" id="cell-id=24">
+<div class="input">
+<div class="prompt input_prompt">In [ ]:</div>
+<div class="inner_cell">
+<div class="input_area">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">18</span><span class="p">,</span> <span class="mi">9</span><span class="p">))</span>
+
+<span class="n">cases</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">([</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">3</span><span class="p">],</span> <span class="s2">"t1 present → predict $t_2$"</span><span class="p">,</span> <span class="n">P3a</span><span class="p">,</span> <span class="n">pn3a</span><span class="p">,</span> <span class="n">h3a</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+    <span class="p">([</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">3</span><span class="p">],</span> <span class="s2">"t1 absent  → predict $t_4$"</span><span class="p">,</span> <span class="n">P3b</span><span class="p">,</span> <span class="n">pn3b</span><span class="p">,</span> <span class="n">h3b</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+<span class="p">]</span>
+
+<span class="k">for</span> <span class="n">row</span><span class="p">,</span> <span class="p">(</span><span class="n">seq</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">P_</span><span class="p">,</span> <span class="n">pn</span><span class="p">,</span> <span class="n">h_last</span><span class="p">,</span> <span class="n">expected</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">cases</span><span class="p">):</span>
+    <span class="n">pos_labels_</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"pos </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="se">\n</span><span class="s2">(t</span><span class="si">{</span><span class="n">seq</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s2">)"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">)]</span>
+
+    <span class="c1"># ── Panel A: Attention matrix P ───────────────────────────────────────────</span>
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">P_</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"Oranges"</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">"$P$ — </span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Key pos"</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Query pos"</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">pos_labels_</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">(</span><span class="n">pos_labels_</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.046</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">L</span><span class="p">):</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">P_</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+                    <span class="n">color</span><span class="o">=</span><span class="s2">"white"</span> <span class="k">if</span> <span class="n">P_</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.5</span> <span class="k">else</span> <span class="s2">"black"</span><span class="p">)</span>
+
+    <span class="c1"># ── Panel B: h_last as a 2-channel bar ───────────────────────────────────</span>
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">ch_colors</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"steelblue"</span><span class="p">,</span> <span class="s2">"slategray"</span><span class="p">]</span>
+    <span class="n">bars</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">([</span><span class="s2">"ch 0</span><span class="se">\n</span><span class="s2">(detects $t_1$)"</span><span class="p">,</span> <span class="s2">"ch 1</span><span class="se">\n</span><span class="s2">(constant)"</span><span class="p">],</span> <span class="n">h_last</span><span class="p">,</span>
+                  <span class="n">color</span><span class="o">=</span><span class="n">ch_colors</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">1.2</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">"$h_</span><span class="se">{{\\</span><span class="s2">mathrm</span><span class="se">{{</span><span class="s2">last</span><span class="se">}}}}</span><span class="s2">$ (2-channel attention output)"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Value"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">bar</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">bars</span><span class="p">,</span> <span class="n">h_last</span><span class="p">):</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">bar</span><span class="o">.</span><span class="n">get_x</span><span class="p">()</span> <span class="o">+</span> <span class="n">bar</span><span class="o">.</span><span class="n">get_width</span><span class="p">()</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="n">val</span> <span class="o">+</span> <span class="mf">0.03</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">val</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="n">ha</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">"bottom"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">11</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">"bold"</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"gray"</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="s2">"--"</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+
+    <span class="c1"># ── Panel C: next-token prediction ───────────────────────────────────────</span>
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+    <span class="n">colors</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"steelblue"</span><span class="p">]</span> <span class="o">*</span> <span class="n">V</span>
+    <span class="n">colors</span><span class="p">[</span><span class="n">expected</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"darkorange"</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">V</span><span class="p">),</span> <span class="n">pn</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">1.1</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">"$</span><span class="se">\\</span><span class="s2">hat</span><span class="se">{{</span><span class="s2">p</span><span class="se">}}</span><span class="s2">$ — predicted next token"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Token"</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Probability"</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">V</span><span class="p">));</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">([</span><span class="sa">f</span><span class="s2">"t</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">V</span><span class="p">)])</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">pn</span><span class="p">):</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="o">+</span> <span class="mf">0.02</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">p</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">"bottom"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span>
+    <span class="sa">r</span><span class="s2">"Example 3: $d_v=2$, $W_V = [e_1\ |\ \tfrac</span><span class="si">{1}{2}</span><span class="s2">\mathbf</span><span class="si">{1}</span><span class="s2">]$, "</span>
+    <span class="sa">r</span><span class="s2">"$W_Q=e_3$, $W_K=e_1$, no masking, $\alpha=5$, $\gamma=5$"</span>
+    <span class="s2">"</span><span class="se">\n</span><span class="s2">Top: $t_1$ present (sequence [0,1,0,3])  —  Bottom: $t_1$ absent (sequence [0,0,0,3])"</span><span class="p">,</span>
+    <span class="n">fontsize</span><span class="o">=</span><span class="mi">11</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.01</span>
+<span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered" id="cell-id=25"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Interpretation:-Example-3">Interpretation: Example 3<a class="anchor-link" href="#Interpretation:-Example-3">¶</a></h2><p><strong>Channel 1 as a free bias.</strong> The key insight is that $v_j^{(1)} = 1$ for every token in this embedding scheme, so $h^{(1)} = \sum_j P_{ij} \cdot 1 = 1$ exactly, for any attention pattern and any input sequence. Channel 1 is not a function of the context — it is a constant that $W_O$ can treat as a bias term. This turns the output equation into:</p>
+<p>$$
+z = h^{(0)} \cdot W_O[0,:] + W_O[1,:]
+$$</p>
+<p>where $W_O[1,:]$ is effectively a <strong>fixed bias logit vector</strong> and $h^{(0)}$ modulates an additive correction.</p>
+<p><strong>The two branches:</strong></p>
+<ul>
+<li><p><strong>$t_1$ present:</strong> $h^{(0)} \approx 0.98$, so $z \approx \gamma(e_2 - e_4) + \gamma e_4 = \gamma e_2$. The $-e_4$ from channel 0 exactly cancels the $+e_4$ from the bias, leaving only $t_2$.</p>
+</li>
+<li><p><strong>$t_1$ absent:</strong> $h^{(0)} \approx 0$ (uniform attention, no $t_1$ values), so $z \approx \gamma e_4$. The default bias wins and $t_4$ is predicted.</p>
+</li>
+</ul>
+<p><strong>Why the cancellation is exact.</strong> This is the key algebraic trick:</p>
+<p>$$
+W_O[0,:] + W_O[1,:] = \gamma(e_2 - e_4) + \gamma e_4 = \gamma e_2
+$$</p>
+<p>The $e_4$ components cancel by design. This is only possible because channel 1 provides a known, constant value of 1 — if it were data-dependent, the cancellation would only be approximate.</p>
+<p><strong>Connection to the residual stream.</strong> In real transformers, the MLP and attention outputs are added to a persistent residual stream, which plays the same role as channel 1 here: it provides a "prior" that subsequent layers can selectively override. The $d_v=2$ construction here is a minimal analogue of this architecture.</p>
 </div>
 </div>
 </div>
