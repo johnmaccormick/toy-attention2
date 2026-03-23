@@ -35,7 +35,27 @@
 - The toy attention head behaves like a **probabilistic pointer** to previous tokens, yielding a finite-order Markov process for sequence generation.
 - Attention in this setup is analogous to a **latent-variable mixture model** but not a strict HMM because the latent variable depends on the full context.
 
+## Relationship Matrix R
+The score matrix factors through a **relationship matrix** `R in R^{d x d}` that encodes attention affinity between embedding directions, independently of any specific input sequence:
+
+```
+R = W_Q W_K^T
+S = X R X^T
+```
+
+This is equivalent to `S = Q K^T` since `Q = X W_Q` and `K = X W_K`.
+
+Because token representations are sums of two basis vectors, each score decomposes into four R-entries:
+
+```
+S_ij = x_i R x_j^T = R[t_i, t_j] + R[t_i, V+p_j] + R[V+p_i, t_j] + R[V+p_i, V+p_j]
+```
+
+This separates **token-to-token**, **token-to-position**, **position-to-token**, and **position-to-position** interactions, making `R` directly interpretable as a learned affinity table over embedding dimensions.
+
+**PyTorch convention note:** `nn.Linear` stores weights transposed (`weight.shape = (out, in)`), so the mathematical projection matrix is `W_Q.weight.T`. In code: `R = W_Q.weight.T @ W_K.weight`.
+
 ## Open Questions / Next Steps
 - Formalize the finite-state-machine interpretation for the `V=5, L=4` toy model.
 - Explore minimal parameter settings and symmetries for analytic solutions.
-- Investigate how learned k
+- Use R to analytically derive which sequences produce uniform vs. peaked attention distributions.
